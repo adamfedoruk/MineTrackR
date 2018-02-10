@@ -1,0 +1,62 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Transaction data is available in a JSON file from bitstamp.net here. This can be easily read with the fromJSON() function from the RJSONIO package and put into a data frame with the help of do.call().
+
+library(RJSONIO)
+url <- "https://www.bitstamp.net/api/transactions/"
+bs_data <- fromJSON(url) # returns a list
+bs_df <- do.call(rbind,lapply(bs_data,data.frame,stringsAsFactors=FALSE))
+head(bs_df)
+```
+
+In the data frame returned above "tid" is the transaction id. "date" is the time stamp of the transaction in unix time. (We will see how to work with that below.) "price" is the bitcoin price. "amount" the amount of bitcoin, and "type" = 0 for a buy and 1 for a sell.
+
+Bitcoincharts has some market data in JSON format here. However, applying exactly the same code will most likely result in a very unhelpful error message something like this:
+```{r}
+### less efficient? - 
+##https://stackoverflow.com/questions/4512465/what-is-the-most-efficient-way-to-cast-a-list-as-a-data-frame
+library(plyr)
+bs_df2 <- ldply(bs_data,data.frame)
+```
+
+What's going on here is that Nulls in the data will keep R from building a data frame because some rows will have more columns than others. On way around it is to use a function like nullToNA()to turn Nulls into NAs on the list returned by fromJSON().
+```{r}
+nullToNA <- function(x) {
+  x[sapply(x, is.null)] <- NA
+  return(x)
+}
+ 
+url_m <- "http://api.bitcoincharts.com/v1/markets.json"
+mkt_data <- fromJSON(url_m)
+str(mkt_data)
+mkt_data2 <- lapply(mkt_data,nullToNA)
+mkt_df <- do.call(rbind,lapply(mkt_data2,data.frame,stringsAsFactors=FALSE))
+head(mkt_df)
+```
+
+The easiest way to get Bitcoin transaction data is from the cache of zipped .csv files at http://api.bitcoincharts.com/v1/csv/. The following bit of code downloads the bitstamp transaction data in US dollars, un-zips it and reads all 8 million rows or so into a data frame. Then the unix timestamp is converted into a date
+```{r}
+ Code to read compressed .gz files
+# http://api.bitcoincharts.com/v1/csv/
+# Data Source
+bitcoin_file <- "bitstampUSD.csv.gz"
+URL <- "http://api.bitcoincharts.com/v1/csv"
+source_file <- file.path(URL,bitcoin_file)
+# Data destination on local disk
+dataDir <-"C:/DATA/Bitcoin"
+dest_file <- file.path(dataDir,bitcoin_file)
+# Download to disk
+download.file(source_file,destfile = dest_file)
+# Uncompress .gz file and read into a data frame
+raw <- read.csv(gzfile(dest_file),header=FALSE)
+head(raw,2)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
