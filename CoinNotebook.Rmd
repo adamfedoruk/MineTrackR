@@ -1,0 +1,111 @@
+---
+title: "Garlic Squad"
+output: html_notebook
+---
+
+ MINE THOSE MEMES
+
+```{r}
+library(googlesheets)
+library(ggplot2)
+library(reshape)
+library(dplyr)
+library(rmarkdown)
+library(DT)
+BAL_BEFORE_DATA <- 31.42953
+```
+
+
+```{r include=FALSE}
+gs_ls()
+GRLC<- gs_title("CoinStats")
+coin<- gs_read(ss=GRLC)
+coinDF<-as.data.frame(coin)
+coinDF$Date<-as.Date.character(coinDF$Date, format = "%m/%d/%Y")
+##### fix dates later
+
+```
+
+```{r Date/Time Splitting}
+coinDF$DATESPLIT <- coinDF$Timestamp
+ coinDF<-transform(coinDF, DATESPLIT = colsplit(DATESPLIT, split = " ", names=c("Day", "Month","Year", "Time")))
+coinDF$DATESPLIT$Day<-gsub("*st","",coinDF$DATESPLIT$Day)
+coinDF$DATESPLIT$Day<-gsub("*nd","",coinDF$DATESPLIT$Day)
+coinDF$DATESPLIT$Day<-gsub("*th","",coinDF$DATESPLIT$Day)
+coinDF$DateTime<-paste(coinDF$Date,coinDF$DATESPLIT$Time,sep=" ")
+coinDF$DateTime<-as.POSIXct(coinDF$DateTime, format=("%Y-%m-%d %H:%M:%S"))
+coinDF$Date<-as.POSIXct(coinDF$Date, format=("%Y-%m-%d"))
+```
+
+
+
+```{r}
+coin_sum <- coinDF %>%
+  group_by(Date) %>%
+  summarise(TotalPayout = sum(Amount))
+ggplot(coin_sum, aes(x=Date, y=TotalPayout)) +
+  geom_bar(stat="identity")
+```
+
+```{r}
+#ggplot(coin_sum, aes(x=coin_sum$Date, y= coin_sum$TotalPayout))+
+#  geom_bar(stat="identity")+
+  #geom_line() +
+#  geom_smooth(method = "loess", se = FALSE)
+```
+
+```{r}
+ggplot(coinDF, aes(x=DateTime, y=RunningTotal))+
+  geom_line()
+```
+
+
+```{r}
+ggplot(coinDF, aes(x=DateTime, y=Amount))+
+  geom_line()+
+  geom_point()
+  geom_smooth(method = "loess", se = FALSE)
+```
+
+```{r}
+coinDF2<-coinDF
+coinDF2$DATESPLIT<-NULL
+day_avg_payout <- coinDF2 %>%
+  group_by(Date) %>%
+  summarise(AveragePayout = mean(Amount), Count=n())
+datatable(day_avg_payout)
+
+
+```
+
+```{r}
+ggplot(day_avg_payout, aes(x=Date, y=AveragePayout)) +
+  geom_bar(stat="identity")
+```
+
+Normality of payouts
+Taking Data From HappyFunPool, Starting when payouts went hourly 
+
+```{r}
+coin_hour<-coinDF2 %>%
+  filter(Pool == "Happy Fun") %>%
+  filter(PaySched == "Hourly")
+
+```
+
+
+```{r}
+ggplot(coin_hour, aes(coin_hour$Amount))+
+  geom_histogram(
+    #binwidth = .02
+      )
+```
+
+
+```{r}
+ggplot(coin_hour, aes(x=DateTime, y=Amount))+
+  geom_line()+
+  geom_point()
+  geom_smooth(method = "loess", se = FALSE)
+```
+
